@@ -15,6 +15,6 @@ api.add_resource(Hoteis, '/hoteis')
 api.add_resource(Hotel, '/hoteis/<int:hotel_id>')
 
 if __name__ == "__main__":
-    from sqlalchemy import database
+    from sql_alchemy_import import database
     database.init_app(app)
     app.run(debug=True)
