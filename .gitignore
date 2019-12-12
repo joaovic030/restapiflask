@@ -1,0 +1,5 @@
+__pycache__
+database.db
+ambvir
+.vscode
+models/__pycache__/
