@@ -28,7 +28,7 @@ class User(Resource):
 
 class UserRegister(Resource):
     # CREATING A USER
-    @jwt_required
+    
     def post(self):
     
         data = attributes.parse_args()

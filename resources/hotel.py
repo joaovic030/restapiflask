@@ -1,33 +1,9 @@
 from flask_restful import Resource, reqparse
 from models.hotel import HotelModel
+from resources.filtros import normalize_path_params, query_with_city, query_without_city
+from models.site import SiteModel
 from flask_jwt_extended import jwt_required
-import sqlite3
-
-def normalize_path_params(city=None, 
-                            rating_min=0, 
-                            rating_max=5, 
-                            dailyvalue_min=0, 
-                            dailyvalue_max=10000,
-                            limit=50, offset=0, **dados):
-    if city:
-        return {
-            'rating_min': rating_min,
-            'rating_max': rating_max,
-            'dailyvalue_min': dailyvalue_min,
-            'dailyvalue_max': dailyvalue_max,
-            'city': city,
-            'limit': limit,
-            'offset': offset
-        }
-    return {
-            'rating_min': rating_min,
-            'rating_max': rating_max,
-            'dailyvalue_min': dailyvalue_min,
-            'dailyvalue_max': dailyvalue_max,
-            'limit': limit,
-            'offset': offset
-        }
-    
+import sqlite3 
 
 #path -> /hoteis?city=Rio de Janeiro&rating_min=4&diaria_max=400
 path_params = reqparse.RequestParser()
@@ -49,20 +25,11 @@ class Hoteis(Resource):
         parameters = normalize_path_params(**data_valid)
         
         if not parameters.get('city'):
-            query = "SELECT * FROM hoteis \
-                WHERE (rating >= ? and rating <= ?) \
-                    and (dailyvalue >= ? and dailyvalue <= ?) \
-                        LIMIT ? OFFSET ?"
             query_tuple = tuple([parameters[key] for key in parameters])
-            result = cursor.execute(query, query_tuple)
+            result = cursor.execute(query_without_city, query_tuple)
         else:
-            query = "SELECT * FROM hoteis \
-                WHERE (rating >= ? and rating <= ?) \
-                    and (dailyvalue >= ? and dailyvalue <= ?) \
-                        and (city = ?) \
-                        LIMIT ? OFFSET ?"
             query_tuple = tuple([parameters[key] for key in parameters])
-            result = cursor.execute(query, query_tuple)
+            result = cursor.execute(query_with_city, query_tuple)
         hoteis = []
         for linha in result:
             hoteis.append(
@@ -71,7 +38,8 @@ class Hoteis(Resource):
                     'name': linha[1],
                     'rating': linha[2],
                     'dailyvalue': linha[3],
-                    'city': linha[4]
+                    'city': linha[4],
+                    'site_id': linha[5]
                 }
             )
         return { 'hoteis': hoteis }
@@ -82,6 +50,7 @@ class Hotel(Resource):
     arguments.add_argument('rating', type=float, required=True, help="The field rating cannot be left  empty")
     arguments.add_argument('dailyvalue')
     arguments.add_argument('city')
+    arguments.add_argument('site_id', type=int, required=True, help="Every hotel needs to be linked with a site")
     def find_hotel(hotel_id):
         for hotel in hoteis:
             if hotel['hotel_id'] == hotel_id:
@@ -99,6 +68,9 @@ class Hotel(Resource):
         
         dados = Hotel.arguments.parse_args()
         object_hotel = HotelModel(hotel_id, **dados)
+
+        if not SiteModel.find_by_id(dados['site_id']):
+            return {'message': "The hotel must be associated to a valid site id"}, 400
         try:
             object_hotel.save_hotel()
         except:
